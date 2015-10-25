@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Arkanon <arkanon@lsd.org.br>
+# 2015/10/21 (Wed) 02:50:37 BRD
+# 2015/10/21 (Wed) 00:05:00 BRD
+
+width=10
+
+beep()
+# <http://unix.stackexchange.com/a/163716>
+# teste:  for i in {100..1000..10}; do beep $i; done
+{
+  local f t pid
+  f=$1 # frequencia
+  t=$2 # duraçao (centesimos de segundo)
+  [ "$t" ] || t=7 # duraçao default
+  t=$(bc<<<"scale=2;$t/100")s
+  ( ( speaker-test -t sine -f $f )& pid=$!; disown $pid; sleep $t; kill -9 $pid ) &> /dev/null
+}
+
+pos()
+# <http://stackoverflow.com/a/2575525>
+{
+  exec < /dev/tty
+  local pos oldstty=$(stty -g)
+  stty raw -echo min 0
+  echo -en "\e[6n" > /dev/tty
+  IFS=';' read -r -d R -a pos
+  stty $oldstty
+  row=$((${pos[0]:2}))
+  col=$((${pos[1]}))
+}
+
+charis()
+{
+  echo -n "$REPLY" | od -An -tx1 | grep -wq $1
+}
+
+clear
+
+>| out
+
+while :
+do
+
+  tput sc
+  pos
+  tput cup 0 $((width+3))
+  printf "L:%03i  C:%03i" $row $col
+  tput rc
+
+  read -d\| -n1
+
+  ((col>=width)) && ! charis 0a && { tput cub 1; unset REPLY; }
+  echo -n "$REPLY" >> out
+  asc=$(echo -n "$REPLY" | od -td1 | grep -Eo " [0-9]+")
+  beep $((asc*10))
+  charis 1b && break # esc
+
+done
+
+echo >> out
+echo -e "\n"
+
+# EOF

@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# <http://www.linuxquestions.org/questions/blog/nominal-animal-554844/bash-scripts-and-keyboard-input-34422/>
+
+trap "stty $(stty -g)" EXIT          # reset terminal to current state when we exit
+stty -echo -icanon time 2 || exit $? # disable echo and special characters, set input timeout to 0.2 seconds
+KEYS=""                              # string containing all keypresses
+ IFS=$'\a'                           # set field separator to BEL (should not occur in keypresses)
+echo "Esc to quit" >&2               # remind user to press ESC to quit
+
+while :                              # input loop
+do
+
+  while read -t 0                    # read more input from keyboard when necessary
+  do
+    read -s -r -d "" -N 1 -t 0.2 CHAR && KEYS="$KEYS$CHAR" || break
+  done
+
+  if [ -z "$KEYS" ]                  # if no keys to process, wait 0.05 seconds and retry
+  then
+    sleep 0.05
+    continue
+  fi
+
+  case "$KEYS" in                    # check the first (next) keypress in the buffer
+    $'\x1b\x5b\x41'*          ) KEYS="${KEYS##???}"   ; echo -n "<Up>"     ;;
+    $'\x1b\x5b\x42'*          ) KEYS="${KEYS##???}"   ; echo -n "<Down>"   ;;
+    $'\x1b\x5b\x44'*          ) KEYS="${KEYS##???}"   ; echo -n "<Left>"   ;;
+    $'\x1b\x5b\x43'*          ) KEYS="${KEYS##???}"   ; echo -n "<Right>"  ;;
+    $'\x1b\x4f\x48'*          ) KEYS="${KEYS##???}"   ; echo -n "<Home1>"  ;;
+    $'\x1b\x5b\x31\x7e'*      ) KEYS="${KEYS##????}"  ; echo -n "<Home2>"  ;;
+    $'\x1b\x4f\x46'*          ) KEYS="${KEYS##???}"   ; echo -n "<End1>"   ;;
+    $'\x1b\x5b\x34\x7e'*      ) KEYS="${KEYS##????}"  ; echo -n "<End2>"   ;;
+    $'\x1b\x5b\x45'*          ) KEYS="${KEYS#???}"    ; echo -n "<Center>" ;;
+    $'\x1b\x5b\x35\x7e'*      ) KEYS="${KEYS##????}"  ; echo -n "<PgUp>"   ;;
+    $'\x1b\x5b\x36\x7e'*      ) KEYS="${KEYS##????}"  ; echo -n "<PgDn>"   ;;
+    $'\x1b\x5b\x32\x7e'*      ) KEYS="${KEYS##????}"  ; echo -n "<Ins>"    ;;
+    $'\x1b\x5b\x33\x7e'*      ) KEYS="${KEYS##????}"  ; echo -n "<Del>"    ;;
+    $'\x1b\x4f\x50'*          ) KEYS="${KEYS##???}"   ; echo -n "<F1>"     ;;
+    $'\x1b\x4f\x51'*          ) KEYS="${KEYS##???}"   ; echo -n "<F2>"     ;;
+    $'\x1b\x4f\x52'*          ) KEYS="${KEYS##???}"   ; echo -n "<F3>"     ;;
+    $'\x1b\x4f\x53'*          ) KEYS="${KEYS##???}"   ; echo -n "<F4>"     ;;
+    $'\x1b\x5b\x31\x35\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F5>"     ;;
+    $'\x1b\x5b\x31\x37\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F6>"     ;;
+    $'\x1b\x5b\x31\x38\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F7>"     ;;
+    $'\x1b\x5b\x31\x39\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F8>"     ;;
+    $'\x1b\x5b\x32\x30\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F9>"     ;;
+    $'\x1b\x5b\x32\x31\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F10>"    ;;
+    $'\x1b\x5b\x32\x32\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F11>"    ;;
+    $'\x1b\x5b\x32\x34\x7e'*  ) KEYS="${KEYS##?????}" ; echo -n "<F12>"    ;;
+    $'\n'*|$'\r'*             ) KEYS="${KEYS##?}"     ; echo -n "<Enter>"  ;;
+    $'\t'*                    ) KEYS="${KEYS##?}"     ; echo -n "<Tab>"    ;;
+    $'\x1b'                   ) KEYS="${KEYS##?}"     ; echo    "<Esc>"  ; exit 0         ;;
+    $'\x1b'*                  ) echo -n "Unknown ${#KEYS} chars: \$'\\x" ; echo -n "$KEYS" | od --width=256 -t x1 | sed -e '2,99 d; s|^[0-9A-Fa-f]* ||; s| |\\x|g; s|$|'"'|" ; KEYS="" ;;
+    [$'\x01'-$'\x1f'$'\x7f']* ) KEYS="${KEYS##?}"                                         ;;
+    *                         )  KEY="${KEYS:0:1}" ; KEYS="${KEYS#?}"    ; echo -n "$KEY" ;;
+  esac
+
+done
+
